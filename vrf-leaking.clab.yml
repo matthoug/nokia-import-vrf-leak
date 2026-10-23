@@ -1,0 +1,104 @@
+# Copyright 2020 Nokia
+# Licensed under the BSD 3-Clause License.
+# SPDX-License-Identifier: BSD-3-Clause
+
+name: vrf-leaking # short for streaming telemetry ;)
+prefix: ""
+
+mgmt:
+  network: st
+  ipv4-subnet: 172.80.80.0/24
+
+topology:
+  defaults:
+    kind: nokia_srlinux
+
+  kinds:
+    nokia_srlinux:
+      image: ghcr.io/nokia/srlinux:25.10
+      type: ixr-d2l
+    linux:
+      image: ghcr.io/srl-labs/network-multitool
+    frr:
+      image: quay.io/frrouting/frr:containerlab-10.7.1
+      daemons:
+        - bgpd
+
+  nodes:
+    ### SPINES ###
+    spine1:
+      group: spine
+      startup-config: configs/spine1.cfg
+      mgmt-ipv4: 172.80.80.21
+    spine2:
+      group: spine
+      startup-config: configs/spine2.cfg
+      mgmt-ipv4: 172.80.80.22
+
+    ### LEAFS ###
+    leaf1:
+      startup-config: configs/leaf1.cfg
+      mgmt-ipv4: 172.80.80.11
+      group: leaf
+    leaf2:
+      startup-config: configs/leaf2.cfg
+      mgmt-ipv4: 172.80.80.12
+      group: leaf
+    leaf3:
+      startup-config: configs/leaf3.cfg
+      mgmt-ipv4: 172.80.80.13
+      group: leaf
+    leaf4:
+      startup-config: configs/leaf4.cfg
+      mgmt-ipv4: 172.80.80.14
+      group: leaf
+
+    ### CLIENTS ###
+    client1:
+      kind: linux
+      mgmt-ipv4: 172.80.80.31
+      exec:
+        - ip address add 172.10.0.10/24 dev eth1
+        - ip route add 8.8.8.8 via 172.10.0.1 dev eth1
+        - ip -6 address add 2002::172:10:0:10/96 dev eth1
+      group: server
+    gateway1:
+      kind: frr
+      mgmt-ipv4: 172.80.80.32
+      startup-config: configs/gateway1.cfg
+      exec:
+        - ip address add 10.10.10.10/24 dev eth1
+        - ip address add 8.8.8.8/32 dev lo
+        - ip -6 address add 2002::10:10:10:10/96 dev eth1
+      group: server
+    gateway2:
+      kind: frr
+      mgmt-ipv4: 172.80.80.34
+      startup-config: configs/gateway2.cfg
+      exec:
+        - ip address add 10.20.20.20/24 dev eth1
+        - ip address add 8.8.8.8/32 dev lo
+        - ip -6 address add 2002::10:20:20:20/96 dev eth1
+      group: server
+    client2:
+      kind: linux
+      mgmt-ipv4: 172.80.80.35
+      exec:
+        - ip address add 172.20.0.20/24 dev eth1
+        - ip route add 8.8.8.8 via 172.20.0.1 dev eth1
+        - ip -6 address add 2002::172:20:0:20/96 dev eth1
+      group: server
+
+  links:
+    - endpoints: [ "spine1:e1-1", "leaf1:e1-49" ]
+    - endpoints: [ "spine1:e1-2", "leaf2:e1-49" ]
+    - endpoints: [ "spine1:e1-3", "leaf3:e1-49" ]
+    - endpoints: [ "spine2:e1-1", "leaf1:e1-50" ]
+    - endpoints: [ "spine2:e1-2", "leaf2:e1-50" ]
+    - endpoints: [ "spine2:e1-3", "leaf3:e1-50" ]
+    - endpoints: [ "spine1:e1-4", "leaf4:e1-49" ]
+    - endpoints: [ "spine2:e1-4", "leaf4:e1-50" ]
+    - endpoints: [ "leaf1:e1-1", "client1:eth1" ]
+    - endpoints: [ "leaf2:e1-1", "gateway1:eth1" ]
+    - endpoints: [ "leaf3:e1-1", "client2:eth1" ]
+    - endpoints: [ "leaf4:e1-1", "gateway2:eth1" ]
